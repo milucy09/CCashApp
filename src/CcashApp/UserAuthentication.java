@@ -2,20 +2,22 @@ package src.CcashApp;
 
 import java.io.*;
 import java.util.*;
-import java.util.regex.Pattern;
 
 public class UserAuthentication {
-    private static final String DB_FILE = "database.txt";
     private static List<User> userList = new ArrayList<>();
     private static int nextUserId = 1;
     private User loggedInUser = null;
+    private static final String FILE_NAME = "database.txt";
 
-    public UserAuthentication() {
+    private CheckBalance balanceSystem;
+
+    public UserAuthentication(CheckBalance balanceSystem) {
+        this.balanceSystem = balanceSystem;
         loadUsersFromFile();
     }
 
     public void registerUser(Scanner sc) {
-        System.out.println("--- User Registration ---");
+        System.out.println("\n--- User Registration ---");
         System.out.print("Enter Name: ");
         String name = sc.nextLine().trim();
         System.out.print("Enter Email: ");
@@ -30,7 +32,7 @@ public class UserAuthentication {
             return;
         }
 
-        if (!Pattern.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$", email)) {
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
             System.out.println("❌ Invalid email format.");
             return;
         }
@@ -42,19 +44,21 @@ public class UserAuthentication {
             }
         }
 
-        if (!Pattern.matches("^09\\d{9}$", number)) {
+        if (!number.matches("^09\\d{9}$")) {
             System.out.println("❌ Invalid number. Must start with '09' and be 11 digits.");
             return;
         }
 
-        if (!Pattern.matches("\\d{4}", pin)) {
+        if (!pin.matches("\\d{4}")) {
             System.out.println("❌ PIN must be exactly 4 digits.");
             return;
         }
 
+        double initialBalance = 0.0;
         User newUser = new User(nextUserId++, name, email, number, pin);
         userList.add(newUser);
-        saveUsersToFile(); // ✅ Save to file immediately
+        balanceSystem.updateBalance(newUser.getId(), initialBalance);
+        saveUsersToFile();
         System.out.println("✅ Registration successful for: " + name);
     }
 
@@ -83,7 +87,7 @@ public class UserAuthentication {
             return;
         }
 
-        if (!Pattern.matches("\\d{4}", newPin)) {
+        if (!newPin.matches("\\d{4}")) {
             System.out.println("❌ New PIN must be exactly 4 digits.");
             return;
         }
@@ -102,35 +106,46 @@ public class UserAuthentication {
         }
     }
 
+    private void saveUsersToFile() {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(FILE_NAME))) {
+            for (User user : userList) {
+                double bal = balanceSystem.getBalance(user.getId());
+                writer.write(user.getId() + "|" + user.getName() + "|" + user.getEmail() + "|" +
+                        user.getNumber() + "|" + user.getPin() + "|" + bal);
+                writer.newLine();
+            }
+        } catch (IOException e) {
+            System.out.println("❌ Error saving users: " + e.getMessage());
+        }
+    }
+
     private void loadUsersFromFile() {
-        File file = new File(DB_FILE);
+        File file = new File(FILE_NAME);
         if (!file.exists()) return;
 
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader reader = new BufferedReader(new FileReader(FILE_NAME))) {
             String line;
-            while ((line = br.readLine()) != null) {
-                if (line.startsWith("#") || line.trim().isEmpty()) continue;
+            while ((line = reader.readLine()) != null) {
                 String[] parts = line.split("\\|");
-                if (parts.length >= 5) {
+                if (parts.length >= 6) {
                     int id = Integer.parseInt(parts[0]);
-                    userList.add(new User(id, parts[1], parts[2], parts[3], parts[4]));
-                    if (id >= nextUserId) nextUserId = id + 1;
+                    String name = parts[1];
+                    String email = parts[2];
+                    String number = parts[3];
+                    String pin = parts[4];
+                    double bal = Double.parseDouble(parts[5]);
+
+                    User user = new User(id, name, email, number, pin);
+                    userList.add(user);
+                    balanceSystem.updateBalance(id, bal);
+
+                    if (id >= nextUserId) {
+                        nextUserId = id + 1;
+                    }
                 }
             }
         } catch (IOException e) {
             System.out.println("❌ Error loading users: " + e.getMessage());
-        }
-    }
-
-    private void saveUsersToFile() {
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(DB_FILE))) {
-            for (User u : userList) {
-                bw.write(u.getId() + "|" + u.getName() + "|" + u.getEmail() + "|" +
-                         u.getNumber() + "|" + u.getPin());
-                bw.newLine();
-            }
-        } catch (IOException e) {
-            System.out.println("❌ Error saving users: " + e.getMessage());
         }
     }
 }

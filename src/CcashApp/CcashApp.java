@@ -5,8 +5,11 @@ import java.util.Scanner;
 public class CcashApp {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        UserAuthentication auth = new UserAuthentication();
+
         CheckBalance balance = new CheckBalance();
+
+        UserAuthentication auth = new UserAuthentication(balance);
+
         Cashin cashin = new Cashin(balance);
         CashTransfer transfer = new CashTransfer(balance);
         Transactions trans = new Transactions();
@@ -104,9 +107,15 @@ public class CcashApp {
                                     double amt = sc.nextDouble();
                                     sc.nextLine();
 
+                                    if (toUser == userId) {
+                                        System.out.println("❌ You cannot transfer money to yourself!");
+                                        break;
+                                    }
+
                                     transfer.cashTransfer(userId, toUser, amt);
                                     trans.addTransaction("Transfer", amt, userId, toUser, userId);
                                     break;
+
 
                                 case 4:
                                     trans.viewUserAll(userId);
@@ -136,6 +145,7 @@ public class CcashApp {
                     break;
 
                 case 2:
+                    System.out.println("\n--- User Registration ---");
                     auth.registerUser(sc);
                     break;
 
